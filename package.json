@@ -1,5 +1,5 @@
 {
-  "name": "@pe/llm-unified-client",
+  "name": "@mallocbaal/llm-unified-client",
   "version": "1.0.0",
   "description": "Unified TypeScript client for LLM providers (OpenAI, DeepSeek, Qwen, Azure, Cohere)",
   "main": "dist/index.js",
