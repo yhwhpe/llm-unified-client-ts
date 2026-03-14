@@ -1,6 +1,6 @@
 {
   "name": "@mallocbaal/llm-unified-client",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Unified TypeScript client for LLM providers (OpenAI, DeepSeek, Qwen, Azure, Cohere)",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
@@ -19,8 +19,11 @@
   "scripts": {
     "build": "tsup src/index.ts --format cjs,esm --dts --clean",
     "dev": "tsup src/index.ts --format cjs,esm --dts --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
     "prepare": "npm run build",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm run test && npm run build"
   },
   "keywords": [
     "llm",
@@ -30,7 +33,9 @@
     "azure",
     "cohere",
     "embeddings",
-    "chat"
+    "chat",
+    "mcp",
+    "tool-calling"
   ],
   "author": "",
   "license": "MIT",
@@ -50,5 +55,8 @@
   },
   "engines": {
     "node": ">=18"
+  },
+  "dependencies": {
+    "openai": "^6.29.0"
   }
 }

@@ -45,3 +45,37 @@ export {
   generateWithSystemPrompt,
   generateWithHistory,
 } from './convenience';
+
+export type { McpTool, McpCallToolResult, McpServerClient, McpServerDefinition } from './mcp/types';
+export { McpServerRegistry } from './mcp/server-registry';
+export { createCallbackMcpServerClient } from './mcp/clients/callback-client';
+export { createMcpSdkServerClient } from './mcp/clients/mcp-sdk-client';
+
+export type {
+  LlmToolDefinition,
+  LlmToolCall,
+  ToolCallingMessage,
+  ToolCallingCompletion,
+  ToolCallingRequest,
+  LlmToolAdapter,
+} from './llm/tool-calling/types';
+export type { ToolCallingPolicy } from './llm/tool-calling/policy';
+export { DEFAULT_TOOL_CALLING_POLICY, mergeToolCallingPolicy } from './llm/tool-calling/policy';
+export { newToolAdapter } from './llm/tool-calling/adapter-factory';
+export { runToolCallingLoop } from './llm/tool-calling/loop';
+
+export type {
+  ToolProviderConfig,
+  ChatWithToolsOptions,
+  ChatWithToolsResponse,
+  McpToolClientOptions,
+} from './mcp-tool-client';
+export { McpToolClient, createMcpToolClient } from './mcp-tool-client';
+export { chatWithTools } from './tool-chat';
+
+export {
+  ProviderError,
+  McpTransportError,
+  ToolExecutionError,
+  PolicyExceededError,
+} from './errors';
