@@ -155,6 +155,7 @@ await mcpClient.connectAllServers();
 
 const answer = await mcpClient.chatWithTools({
   userMessage: 'Найди все Python файлы в проекте',
+  toolChoice: 'required', // потребовать хотя бы один tool-call
   providerOrder: ['deepseek', 'openai'], // fallback порядок
   policy: {
     maxToolIterations: 8,
@@ -166,6 +167,25 @@ const answer = await mcpClient.chatWithTools({
 console.log(answer.content);
 await mcpClient.disconnectAll();
 ```
+
+### MCP: required + fire-and-forget
+
+```ts
+const answer = await mcpClient.chatWithTools({
+  userMessage: 'Продолжим диалог',
+  toolChoice: { type: 'function', name: 'mesa__runObjectivization' },
+  fireAndForgetTools: ['mesa__runObjectivization'],
+  onFireAndForgetError: (toolName, error) => {
+    console.warn(`[MCP] fire-and-forget failed for ${toolName}`, error);
+  },
+});
+```
+
+- `toolChoice: 'required'` — модель должна вызвать хотя бы один tool (добавлен guard retry на уровне loop).
+- `toolChoice: { type: 'function', name }` — модель должна вызвать конкретный tool.
+- `fireAndForgetTools` — указанные tools запускаются в фоне; в loop подставляется synthetic tool-result:
+  `{"status":"accepted","mode":"fire-and-forget"}`.
+- Ошибки фонового исполнения не роняют финальный ответ и приходят в `onFireAndForgetError`.
 
 ### Чат с историей
 

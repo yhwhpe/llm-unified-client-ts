@@ -26,10 +26,19 @@ export interface ToolCallingCompletion {
   toolCalls: LlmToolCall[];
 }
 
+export type ToolChoiceMode =
+  | 'auto'
+  | 'required'
+  | {
+      type: 'function';
+      name: string;
+    };
+
 export interface ToolCallingRequest {
   messages: ToolCallingMessage[];
   tools: LlmToolDefinition[];
   model?: string;
+  toolChoice?: ToolChoiceMode;
   temperature?: number;
   maxTokens?: number;
   signal?: AbortSignal;

@@ -57,6 +57,7 @@ export type {
   ToolCallingMessage,
   ToolCallingCompletion,
   ToolCallingRequest,
+  ToolChoiceMode,
   LlmToolAdapter,
 } from './llm/tool-calling/types';
 export type { ToolCallingPolicy } from './llm/tool-calling/policy';

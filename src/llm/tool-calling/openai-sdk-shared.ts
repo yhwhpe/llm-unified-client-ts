@@ -1,6 +1,12 @@
 import OpenAI from 'openai';
 import { ProviderError } from '../../errors';
-import type { LlmToolCall, ToolCallingCompletion, ToolCallingMessage, ToolCallingRequest } from './types';
+import type {
+  LlmToolCall,
+  ToolCallingCompletion,
+  ToolCallingMessage,
+  ToolCallingRequest,
+  ToolChoiceMode,
+} from './types';
 
 function toOpenAIMessages(messages: ToolCallingMessage[]): Array<Record<string, unknown>> {
   return messages.map((m) => {
@@ -73,6 +79,21 @@ function toTextContent(content: unknown): string {
   return '';
 }
 
+function toOpenAIToolChoice(
+  toolChoice: ToolChoiceMode | undefined
+):
+  | OpenAI.Chat.Completions.ChatCompletionToolChoiceOption
+  | OpenAI.Chat.Completions.ChatCompletionNamedToolChoice {
+  if (!toolChoice || toolChoice === 'auto' || toolChoice === 'required') {
+    return toolChoice ?? 'auto';
+  }
+
+  return {
+    type: 'function',
+    function: { name: toolChoice.name },
+  };
+}
+
 export async function completeWithOpenAISdk(
   client: OpenAI,
   provider: string,
@@ -94,7 +115,7 @@ export async function completeWithOpenAISdk(
           parameters: tool.parameters ?? { type: 'object', properties: {} },
         },
       })) as unknown as OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming['tools'];
-      payload.tool_choice = 'auto';
+      payload.tool_choice = toOpenAIToolChoice(request.toolChoice) as unknown as OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming['tool_choice'];
     }
     if (request.temperature != null) payload.temperature = request.temperature;
     if (request.maxTokens != null) payload.max_tokens = request.maxTokens;

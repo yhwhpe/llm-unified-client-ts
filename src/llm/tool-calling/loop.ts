@@ -5,6 +5,7 @@ import type {
   LlmToolDefinition,
   ToolCallingCompletion,
   ToolCallingMessage,
+  ToolChoiceMode,
 } from './types';
 import type { ToolCallingPolicy } from './policy';
 
@@ -19,6 +20,9 @@ export interface RunToolLoopOptions {
   tools: LlmToolDefinition[];
   messages: ToolCallingMessage[];
   executeTool: (toolName: string, args: Record<string, unknown>) => Promise<unknown>;
+  toolChoice?: ToolChoiceMode;
+  fireAndForgetTools?: string[];
+  onFireAndForgetError?: (toolName: string, error: unknown) => void;
   policy?: Partial<ToolCallingPolicy>;
   temperature?: number;
   maxTokens?: number;
@@ -38,10 +42,18 @@ export async function runToolCallingLoop(options: RunToolLoopOptions): Promise<R
   }
 
   const messages = [...options.messages];
+  const fireAndForgetTools = new Set(options.fireAndForgetTools ?? []);
+  const requiredToolCallMode = isRequiredToolCallMode(options.toolChoice);
+  let requiredGuardInjected = false;
   let lastProvider = options.providers[0].provider;
 
   for (let iteration = 0; iteration < policy.maxToolIterations; iteration++) {
-    const completion = await requestCompletionWithFallback(options, messages, policy);
+    const completion = await requestCompletionWithFallback(
+      options,
+      messages,
+      policy,
+      options.toolChoice
+    );
     lastProvider = completion.provider;
     messages.push({
       role: 'assistant',
@@ -50,6 +62,15 @@ export async function runToolCallingLoop(options: RunToolLoopOptions): Promise<R
     });
 
     if (completion.result.toolCalls.length === 0) {
+      if (requiredToolCallMode && !requiredGuardInjected && options.tools.length > 0) {
+        requiredGuardInjected = true;
+        messages.push({
+          role: 'system',
+          content: buildRequiredToolCallReminder(options.toolChoice),
+        });
+        continue;
+      }
+
       return {
         content: completion.result.content,
         provider: completion.provider,
@@ -59,6 +80,26 @@ export async function runToolCallingLoop(options: RunToolLoopOptions): Promise<R
 
     for (const toolCall of completion.result.toolCalls) {
       const toolArgs = resolveToolArgs(toolCall.arguments, toolCall.argumentsJson);
+      if (fireAndForgetTools.has(toolCall.name)) {
+        void runFireAndForgetTool({
+          options,
+          policy,
+          toolName: toolCall.name,
+          toolArgs,
+        });
+
+        messages.push({
+          role: 'tool',
+          toolCallId: toolCall.id,
+          name: toolCall.name,
+          content: safeJson({
+            status: 'accepted',
+            mode: 'fire-and-forget',
+          }),
+        });
+        continue;
+      }
+
       const toolResult = await retry(
         () =>
           withTimeout(
@@ -87,7 +128,8 @@ export async function runToolCallingLoop(options: RunToolLoopOptions): Promise<R
 async function requestCompletionWithFallback(
   options: RunToolLoopOptions,
   messages: ToolCallingMessage[],
-  policy: ToolCallingPolicy
+  policy: ToolCallingPolicy,
+  toolChoice?: ToolChoiceMode
 ): Promise<{ provider: string; result: ToolCallingCompletion }> {
   let lastErr: unknown;
 
@@ -100,6 +142,7 @@ async function requestCompletionWithFallback(
               messages,
               tools: options.tools,
               model: provider.model,
+              toolChoice,
               temperature: options.temperature,
               maxTokens: options.maxTokens,
               signal: options.signal,
@@ -124,6 +167,42 @@ async function requestCompletionWithFallback(
     'All configured providers failed during tool loop',
     lastErr
   );
+}
+
+function isRequiredToolCallMode(toolChoice: ToolChoiceMode | undefined): boolean {
+  if (!toolChoice) return false;
+  if (toolChoice === 'required') return true;
+  return typeof toolChoice === 'object' && toolChoice.type === 'function';
+}
+
+function buildRequiredToolCallReminder(toolChoice: ToolChoiceMode | undefined): string {
+  if (toolChoice && typeof toolChoice === 'object' && toolChoice.type === 'function') {
+    return `You must call the tool "${toolChoice.name}" before providing your final answer.`;
+  }
+  return 'You must call at least one tool before providing your final answer.';
+}
+
+async function runFireAndForgetTool(args: {
+  options: RunToolLoopOptions;
+  policy: ToolCallingPolicy;
+  toolName: string;
+  toolArgs: Record<string, unknown>;
+}): Promise<void> {
+  const { options, policy, toolName, toolArgs } = args;
+  try {
+    await retry(
+      () =>
+        withTimeout(
+          options.executeTool(toolName, toolArgs),
+          policy.perToolTimeoutMs,
+          `Tool "${toolName}" fire-and-forget`
+        ),
+      policy.maxRetries,
+      policy.retryBackoffMs
+    );
+  } catch (err) {
+    options.onFireAndForgetError?.(toolName, err);
+  }
 }
 
 function resolveToolArgs(

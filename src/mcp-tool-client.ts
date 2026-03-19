@@ -1,6 +1,6 @@
 import { newToolAdapter } from './llm/tool-calling/adapter-factory';
 import { runToolCallingLoop } from './llm/tool-calling/loop';
-import type { ToolCallingMessage } from './llm/tool-calling/types';
+import type { ToolCallingMessage, ToolChoiceMode } from './llm/tool-calling/types';
 import type { ToolCallingPolicy } from './llm/tool-calling/policy';
 import { McpServerRegistry } from './mcp/server-registry';
 import type { McpServerDefinition, NamespacedTool } from './mcp/types';
@@ -16,6 +16,9 @@ export interface ChatWithToolsOptions {
   userMessage: string;
   systemPrompt?: string;
   history?: ToolCallingMessage[];
+  toolChoice?: ToolChoiceMode;
+  fireAndForgetTools?: string[];
+  onFireAndForgetError?: (toolName: string, error: unknown) => void;
   policy?: Partial<ToolCallingPolicy>;
   providerOrder?: Provider[];
   temperature?: number;
@@ -90,6 +93,9 @@ export class McpToolClient {
       providers: selectedProviders,
       tools,
       messages,
+      toolChoice: options.toolChoice,
+      fireAndForgetTools: options.fireAndForgetTools,
+      onFireAndForgetError: options.onFireAndForgetError,
       policy: options.policy,
       temperature: options.temperature,
       maxTokens: options.maxTokens,
